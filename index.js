@@ -16,52 +16,59 @@ var io = require('socket.io')(server);
 server.listen(8081);
 // 开启静态资源服务
 app.use(express.static("./static"));
+
+function keysort(key, sortType) {
+    return function (a, b) {
+        return sortType ? ~~(a[key] < b[key]) : ~~(a[key] > b[key]);
+    }
+}
+
 // io 各种事件
 io.on('connection', function (socket) {
     socket.on('login', function (data) {
         console.log(data);
         if (data.userName && data.password) {
             // socket.emit('loginResult', { msg: '登陆成功',data:{userId:1,userName:'xulei',creationTime:'2020-03-26'} });
-            MongoClient.connect(url, { useNewUrlParser: true }, function(err, db) {
+            MongoClient.connect(url, { useNewUrlParser: true }, function (err, db) {
                 if (err) throw err;
                 var dbo = db.db("story");
-                var whereStr = {userName:data.userName,password:data.password};  // 查询条件
-                dbo.collection("user").find(whereStr).toArray(function(err, result) {
+                var whereStr = { userName: data.userName, password: data.password };  // 查询条件
+                dbo.collection("user").find(whereStr).toArray(function (err, result) {
                     if (err) throw err;
                     console.log(result);
-                    if(result.length){
-                        socket.emit('loginResult', { code:'200',msg: '登陆成功',data:{result} });
-                    }else{
-                        socket.emit('loginResult', { code:'-200',msg: '登陆失败' });
+                    if (result.length) {
+                        socket.emit('loginResult', { code: '200', msg: '登陆成功', data: { result } });
+                    } else {
+                        socket.emit('loginResult', { code: '-200', msg: '登陆失败' });
                     }
                     db.close();
                 });
             });
         }
         else {
-            socket.emit('loginResult', { code:'-200',msg: '登陆失败' });
+            socket.emit('loginResult', { code: '-200', msg: '登陆失败' });
         }
     });
     socket.on('register', function (data) {
         console.log(data);
         var ID = UUID.v1();
         if (data.userName && data.password) {
-            MongoClient.connect(url, { useNewUrlParser: true }, function(err, db) {
+            MongoClient.connect(url, { useNewUrlParser: true }, function (err, db) {
                 if (err) throw err;
                 var dbo = db.db("story");
-                var myobj = {userId:ID,userName:data.userName,password:data.password,creationTime:data.creationTime};
-                var whereStr={userName:data.userName};
-                dbo.collection("user").find(whereStr).toArray(function(err, result) {
+                var myobj = { userId: ID, userName: data.userName, password: data.password, creationTime: data.creationTime };
+                var whereStr = { userName: data.userName };
+                dbo.collection("user").find(whereStr).toArray(function (err, result) {
                     if (err) throw err;
                     console.log(result);
-                    if(result.length){
-                        socket.emit('registerResult', { code:'-200',msg: '注册失败，已有该用户名' });
-                    }else{
+                    if (result.length) {
+                        socket.emit('registerResult', { code: '-200', msg: '注册失败，已有该用户名' });
+                    } else {
                         // socket.emit('registerResult', { code:'200',msg: '注册成功' });
-                        dbo.collection("user").insertOne(myobj, function(err, res) {
+                        dbo.collection("user").insertOne(myobj, function (err, res) {
                             if (err) throw err;
                             console.log(res);
-                            socket.emit('registerResult', { code:'200',msg: '注册成功',data:{userId:ID,userName:data.userName,creationTime:data.creationTime} });
+                            socket.emit('registerResult', { code: '200', msg: '注册成功', data: { userId: ID, userName: data.userName, creationTime: data.creationTime } });
                             db.close();
                         });
                     }
@@ -70,47 +77,95 @@ io.on('connection', function (socket) {
             });
         }
         else {
-            socket.emit('registerResult', { code:'-200',msg: '注册失败' });
+            socket.emit('registerResult', { code: '-200', msg: '注册失败' });
         }
     });
     socket.on('storyType', function (data) {
         console.log(data);
-        MongoClient.connect(url, { useNewUrlParser: true }, function(err, db) {
+        MongoClient.connect(url, { useNewUrlParser: true }, function (err, db) {
             if (err) throw err;
             var dbo = db.db("story");
-            dbo.collection("storyType"). find({}).toArray(function(err, result) { // 返回集合中所有数据
+            dbo.collection("storyType").find({}).toArray(function (err, result) { // 返回集合中所有数据
                 if (err) throw err;
                 console.log(result);
-                socket.emit('storyTypeResult', { code:'200',msg: '查询成功',data:result });
+                socket.emit('storyTypeResult', { code: '200', msg: '查询成功', data: result });
                 db.close();
             });
         });
     });
     socket.on('storyList', function (data) {
         console.log(data);
-        MongoClient.connect(url, { useNewUrlParser: true }, function(err, db) {
+        MongoClient.connect(url, { useNewUrlParser: true }, function (err, db) {
             if (err) throw err;
             var dbo = db.db("story");
-            dbo.collection("storyList"). find({}).toArray(function(err, result) { // 返回集合中所有数据
-                if (err) throw err;
-                console.log(result);
-                for(var i=0; i<result.length; i++){
 
-                }
-                socket.emit('storyListResult', { code:'200',msg: '故事查询成功',data:result });
-                db.close();
-            });
+            var where_storyTypeId = []
+            new Promise(
+                function (resolve, reject) {
+                    if (data.recommendType == 0) {
+                        //按照按照自己的喜好来搜索
+                        dbo.collection("likeDegree").find({ userId: data.userId, "$or": [{ "likeId": "3" }, { "likeId": "4" }] }).toArray(function (err, result) { // 返回集合中所有数据
+                            if (err) throw err;
+                            var where_storyId = []
+                            result.forEach(element => {
+                                where_storyId.push({ storyId: element.storyId })
+                            });
+                            dbo.collection("storyList").find({ "$or": where_storyId }).toArray(function (err, result) { // 返回集合中所有数据
+                                if (err) throw err;
+                                result.forEach(element => {
+                                    where_storyTypeId.push({ storyTypeId: element.storyTypeId })
+                                });
+                                resolve()
+                            });
+                        });
+                    } else {
+                        resolve()
+                    }
+                }).then(
+                    new Promise(function (resolve, reject) {
+                        dbo.collection("storyList").find({ "$or": where_storyTypeId }).toArray(function (err, result) { // 返回集合中所有数据
+                            if (err) throw err;
+
+                            resolve(result)
+                        });
+                    }
+                    ).then(
+                        function (result) {
+                            //按照最新故事创建时间倒序
+                            result.sort(keysrt('creationTime', true));
+                            result.forEach(element => {
+                                //查看自己的喜欢程度
+                                dbo.collection("likeDegree").find({ userId: data.userId, storyId, element: storyId }).toArray(function (err, result) { // 返回集合中所有数据
+                                    if (err) throw err;
+                                    var likeId = 0
+                                    var likeTime = 0
+                                    result.forEach(element => {
+                                        if (element.creationTime > likeTime) {
+                                            likeTime = element.creationTime
+                                            likeId = element.likeId
+                                        }
+                                    });
+
+                                    result.likeId = likeId
+                                });
+                            });
+
+                            socket.emit('storyListResult', { code: '200', msg: '故事查询成功', data: result });
+                        }
+                    )
+                )
         });
+
     });
     socket.on('changeLike', function (data) {
         console.log(data.storyId);
-        MongoClient.connect(url, { useNewUrlParser: true }, function(err, db) {
+        MongoClient.connect(url, { useNewUrlParser: true }, function (err, db) {
             if (err) throw err;
             var dbo = db.db("story");
             var myobj = data;
-            dbo.collection("likeDegree").insertOne(myobj, function(err, res) {
+            dbo.collection("likeDegree").insertOne(myobj, function (err, res) {
                 if (err) throw err;
-                socket.emit('changeLikeResult', { code:'200',msg: '修改成功'});
+                socket.emit('changeLikeResult', { code: '200', msg: '修改成功' });
                 db.close();
             });
         });
@@ -118,36 +173,36 @@ io.on('connection', function (socket) {
     socket.on('uploadStory', function (data) {
         var ID = UUID.v1();
         // console.log(data);
-        console.log(data.imgData.length,ID);
+        console.log(data.imgData.length, ID);
         //接收前台传过来的base64
         var imgData = data.imgData;
-        var imgDataResult=[];
+        var imgDataResult = [];
         //过滤data:URL
-        let j=0;
-        let g=0;
-        for(var i=0; i<data.imgData.length; i++ ){
+        let j = 0;
+        let g = 0;
+        for (var i = 0; i < data.imgData.length; i++) {
             var base64Data = imgData[i].replace(/^data:image\/\w+;base64,/, "");
 
             // let base64str = Buffer.from(bitmap, 'binary').toString('base64');//base64编码
             let dataBuffer = Buffer(base64Data, 'base64');//解码图片
 
-            fs.writeFile(new Date().getTime()+ID+(j++)+".png", dataBuffer, function(err) {
-                if(err){
+            fs.writeFile(new Date().getTime() + ID + (j++) + ".png", dataBuffer, function (err) {
+                if (err) {
                     socket.emit('uploadStoryResult', { err });
-                }else{
+                } else {
                     // socket.emit('uploadStoryResult', { code:'200',msg: '图片保存成功' });
-                    imgDataResult.push(new Date().getTime()+ID+(g++)+".png");
-                    console.log('imgDataResult:',imgDataResult);
+                    imgDataResult.push(new Date().getTime() + ID + (g++) + ".png");
+                    console.log('imgDataResult:', imgDataResult);
                 }
             });
         }
         setTimeout(function () {
-            if(data.storyContent&&data.imgData.length){
-                console.log('imgDataResult',imgDataResult);
-                MongoClient.connect(url, { useNewUrlParser: true }, function(err, db) {
+            if (data.storyContent && data.imgData.length) {
+                console.log('imgDataResult', imgDataResult);
+                MongoClient.connect(url, { useNewUrlParser: true }, function (err, db) {
                     if (err) throw err;
                     var dbo = db.db("story");
-                    var myobj = {userId:data.userId,userName:data.userName, storyId: ID+new Date().getTime(), storyContent:data.storyContent, imgDatabase64:imgData, imgData:imgDataResult, likeId:data.likeId, likeName:data.likeName,storyTypeId:data.storyTypeId, storyTypeName:data.storyTypeName, creationTime: data.creationTime};
+                    var myobj = { userId: data.userId, userName: data.userName, storyId: ID + new Date().getTime(), storyContent: data.storyContent, imgDatabase64: imgData, imgData: imgDataResult, likeId: data.likeId, likeName: data.likeName, storyTypeId: data.storyTypeId, storyTypeName: data.storyTypeName, creationTime: data.creationTime };
                     dbo.collection("storyList").insertOne(myobj, function (err, res) {
                         if (err) throw err;
                         console.log(res);
@@ -158,8 +213,8 @@ io.on('connection', function (socket) {
                         db.close();
                     });
                 });
-            }else{
-                socket.emit('uploadStoryResult', { code:'-200',msg: '请输入故事内容' });
+            } else {
+                socket.emit('uploadStoryResult', { code: '-200', msg: '请输入故事内容' });
             }
         }, 200);
     });
