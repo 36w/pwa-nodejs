@@ -107,9 +107,8 @@ io.on('connection', function (socket) {
         MongoClient.connect(url, { useNewUrlParser: true }, function(err, db) {
             if (err) throw err;
             var dbo = db.db("story");
-            var whereStr = {storyId:data.storyId};  // 查询条件
-            var updateStr = {$set: { likeId : data.likeId,likeName: data.likeName }};
-            dbo.collection("storyList").updateOne(whereStr, updateStr, function(err, res) {
+            var myobj = data;
+            dbo.collection("likeDegree").insertOne(myobj, function(err, res) {
                 if (err) throw err;
                 socket.emit('changeLikeResult', { code:'200',msg: '修改成功'});
                 db.close();
