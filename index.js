@@ -104,13 +104,13 @@ io.on('connection', function (socket) {
                 function (resolve, reject) {
                     if (data.recommendType == 0) {
                         //按照按照自己的喜好来搜索
-                        dbo.collection("likeDegree").find({ userId: data.userId, "$or": [{ "likeId": "3" }, { "likeId": "4" }] }).toArray(function (err, result) { // 返回集合中所有数据
+                        dbo.collection("likeDegree").find({ userId: data.userId, $or: [{ "likeId": "3" }, { "likeId": "4" }] }).toArray(function (err, result) { // 返回集合中所有数据
                             if (err) throw err;
                             var where_storyId = []
                             result.forEach(element => {
                                 where_storyId.push({ storyId: element.storyId })
                             });
-                            dbo.collection("storyList").find({ "$or": where_storyId }).toArray(function (err, result) { // 返回集合中所有数据
+                            dbo.collection("storyList").find({ $or: where_storyId }).toArray(function (err, result) { // 返回集合中所有数据
                                 if (err) throw err;
                                 result.forEach(element => {
                                     where_storyTypeId.push({ storyTypeId: element.storyTypeId })
@@ -123,7 +123,7 @@ io.on('connection', function (socket) {
                     }
                 }).then(
                     new Promise(function (resolve, reject) {
-                        dbo.collection("storyList").find({ "$or": where_storyTypeId }).toArray(function (err, result) { // 返回集合中所有数据
+                        dbo.collection("storyList").find({ $or: where_storyTypeId }).toArray(function (err, result) { // 返回集合中所有数据
                             if (err) throw err;
 
                             resolve(result)
@@ -151,6 +151,7 @@ io.on('connection', function (socket) {
                             });
 
                             socket.emit('storyListResult', { code: '200', msg: '故事查询成功', data: result });
+                            db.close();
                         }
                     )
                 )
