@@ -17,12 +17,6 @@ server.listen(8081);
 // 开启静态资源服务
 app.use(express.static("./static"));
 
-function keysort(key, sortType) {
-    return function (a, b) {
-        return sortType ? ~~(a[key] < b[key]) : ~~(a[key] > b[key]);
-    }
-}
-
 // io 各种事件
 io.on('connection', function (socket) {
     socket.on('login', function (data) {
@@ -110,48 +104,70 @@ io.on('connection', function (socket) {
                             result.forEach(element => {
                                 where_storyId.push({ storyId: element.storyId })
                             });
+                            if(where_storyId.length>0){
                             dbo.collection("storyList").find({ $or: where_storyId }).toArray(function (err, result) { // 返回集合中所有数据
                                 if (err) throw err;
                                 result.forEach(element => {
                                     where_storyTypeId.push({ storyTypeId: element.storyTypeId })
                                 });
-                                resolve()
+                                resolve(data.userId)
                             });
+                            }else{
+                                dbo.collection("storyList").find({ }).toArray(function (err, result) { // 返回集合中所有数据
+                                    if (err) throw err;
+                                    result.forEach(element => {
+                                        where_storyTypeId.push({ storyTypeId: element.storyTypeId })
+                                    });
+                                    resolve(data.userId)
+                                });
+                            }
                         });
                     } else {
                         resolve()
                     }
                 }).then(
                     new Promise(function (resolve, reject) {
-                        dbo.collection("storyList").find({ $or: where_storyTypeId }).toArray(function (err, result) { // 返回集合中所有数据
-                            if (err) throw err;
-
-                            resolve(result)
-                        });
+                        if(where_storyTypeId.length>0){
+                            dbo.collection("storyList").find({ $or: where_storyTypeId }).sort({creationTime:-1}).toArray(function (err, result) { // 返回集合中所有数据
+                                if (err) throw err;
+                                resolve(result)
+                            });
+                        }else{
+                            dbo.collection("storyList").find({}).sort({creationTime:-1}).toArray(function (err, result) { // 返回集合中所有数据
+                                if (err) throw err;
+                                resolve(result)
+                            });
+                        }
                     }
                     ).then(
-                        function (result) {
-                            //按照最新故事创建时间倒序
-                            result.sort(keysrt('creationTime', true));
-                            result.forEach(element => {
+                        function (resultdata) {
+                            resultdata.forEach(dataelement => {
                                 //查看自己的喜欢程度
-                                dbo.collection("likeDegree").find({ userId: data.userId, storyId, element: storyId }).toArray(function (err, result) { // 返回集合中所有数据
+                                dbo.collection("likeDegree").find({
+                                    userId: data.userId,
+                                    storyId: dataelement.storyId
+                                }).toArray(function (err, result) { // 返回集合中所有数据
                                     if (err) throw err;
                                     var likeId = 0
                                     var likeTime = 0
+                                    let j = 0
                                     result.forEach(element => {
                                         if (element.creationTime > likeTime) {
                                             likeTime = element.creationTime
                                             likeId = element.likeId
+                                            dataelement.likeId = likeId
                                         }
                                     });
-
-                                    result.likeId = likeId
                                 });
                             });
-
-                            socket.emit('storyListResult', { code: '200', msg: '故事查询成功', data: result });
-                            db.close();
+                            setTimeout(function () {
+                                socket.emit('storyListResult', {
+                                    code: '200',
+                                    msg: '故事查询成功',
+                                    data: resultdata
+                                });
+                                db.close();
+                            },200)
                         }
                     )
                 )
