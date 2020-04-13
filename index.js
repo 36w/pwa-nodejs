@@ -19,6 +19,7 @@ app.use(express.static("./static"));
 
 // io 各种事件
 io.on('connection', function (socket) {
+    //登录接口
     socket.on('login', function (data) {
         console.log(data);
         if (data.userName && data.password) {
@@ -43,6 +44,8 @@ io.on('connection', function (socket) {
             socket.emit('loginResult', { code: '-200', msg: '登陆失败' });
         }
     });
+    //登录接口end
+    //注册接口
     socket.on('register', function (data) {
         console.log(data);
         var ID = UUID.v1();
@@ -74,6 +77,8 @@ io.on('connection', function (socket) {
             socket.emit('registerResult', { code: '-200', msg: '注册失败' });
         }
     });
+    //注册接口end
+    // 故事类型接口
     socket.on('storyType', function (data) {
         console.log(data);
         MongoClient.connect(url, { useNewUrlParser: true }, function (err, db) {
@@ -87,6 +92,8 @@ io.on('connection', function (socket) {
             });
         });
     });
+    // 故事类型接口end
+    // 故事列表接口
     socket.on('storyList', function (data) {
         console.log(data);
         MongoClient.connect(url, { useNewUrlParser: true }, function (err, db) {
@@ -174,6 +181,8 @@ io.on('connection', function (socket) {
         });
 
     });
+    // 故事列表接口end
+    //修改标记喜欢接口
     socket.on('changeLike', function (data) {
         console.log(data.storyId);
         MongoClient.connect(url, { useNewUrlParser: true }, function (err, db) {
@@ -187,6 +196,8 @@ io.on('connection', function (socket) {
             });
         });
     });
+    //修改标记喜欢接口end
+    //上传故事接口
     socket.on('uploadStory', function (data) {
         var ID = UUID.v1();
         // console.log(data);
@@ -235,4 +246,5 @@ io.on('connection', function (socket) {
             }
         }, 200);
     });
+    //上传故事接口end
 });
